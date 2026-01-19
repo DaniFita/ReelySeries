@@ -1,0 +1,167 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ReelySeries Design System - Premium Cinematic Dark Theme */
+
+@layer base {
+  :root {
+    --background: 0 0% 4%;
+    --foreground: 0 0% 95%;
+
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 95%;
+    --card-hover: 0 0% 12%;
+
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 0 72% 50%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 0 72% 45%;
+
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 90%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 55%;
+
+    --accent: 0 65% 42%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 0 72% 50%;
+
+    --radius: 0.75rem;
+
+    /* Custom Design Tokens */
+    --gradient-dark: linear-gradient(180deg, hsl(0 0% 6%) 0%, hsl(0 0% 3%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 10%) 0%, hsl(0 0% 6%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(0 72% 50%) 0%, hsl(350 65% 40%) 100%);
+    --gradient-hero: radial-gradient(ellipse at 50% 0%, hsl(0 50% 15% / 0.3) 0%, transparent 60%);
+    
+    --shadow-card: 0 4px 24px -4px hsl(0 0% 0% / 0.4);
+    --shadow-card-hover: 0 12px 40px -8px hsl(0 0% 0% / 0.6);
+    --shadow-glow: 0 0 60px -12px hsl(0 72% 50% / 0.3);
+    
+    --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--gradient-dark);
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-xl border border-border/50 rounded-2xl;
+    box-shadow: var(--shadow-card);
+    transition: all 0.4s var(--transition-smooth);
+  }
+
+  .glass-card:hover {
+    @apply bg-card-hover border-border;
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-4px);
+  }
+
+  .rating-badge {
+    @apply inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md;
+    background: var(--gradient-accent);
+    color: hsl(var(--primary-foreground));
+  }
+
+  .rank-number {
+    @apply absolute -left-3 -top-3 w-10 h-10 flex items-center justify-center;
+    @apply text-lg font-bold text-foreground bg-secondary rounded-full;
+    @apply border-2 border-primary/50;
+    box-shadow: 0 4px 12px hsl(0 0% 0% / 0.5);
+  }
+
+  .section-title {
+    @apply text-3xl md:text-4xl font-semibold tracking-tight text-foreground;
+    letter-spacing: -0.02em;
+  }
+
+  .section-subtitle {
+    @apply text-muted-foreground text-lg;
+  }
+
+  .hero-glow {
+    position: absolute;
+    inset: 0;
+    background: var(--gradient-hero);
+    pointer-events: none;
+  }
+
+  .poster-card {
+    @apply relative overflow-hidden rounded-xl transition-all duration-500;
+    box-shadow: var(--shadow-card);
+  }
+
+  .poster-card:hover {
+    transform: scale(1.03);
+    box-shadow: var(--shadow-card-hover), var(--shadow-glow);
+  }
+
+  .poster-card:hover .poster-overlay {
+    opacity: 1;
+  }
+
+  .poster-overlay {
+    @apply absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent;
+    @apply flex flex-col justify-end p-4 opacity-0 transition-opacity duration-300;
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: var(--gradient-accent);
+  }
+}
+
+@layer utilities {
+  .animate-fade-up {
+    animation: fadeUp 0.6s var(--transition-smooth) forwards;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.5s var(--transition-smooth) forwards;
+  }
+
+  @keyframes fadeUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
