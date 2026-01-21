@@ -3,161 +3,160 @@ import RankingSection from "@/components/RankingSection";
 import Footer from "@/components/Footer";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { browseMovies, browseTV, searchMulti } from "@/data/mediaData";
-
-// ✅ Shadcn Select (dark dropdowns on PC)
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  browseMovies,
+  browseTV,
+  searchEverything,
+  type Category,
+} from "@/data/mediaData";
 
 type Lang = "en-US" | "ro-RO" | "es-ES" | "de-DE" | "fr-FR";
 type Region = "RO" | "US" | "DE" | "FR" | "ES";
 type Tab = "movies" | "tv";
-type SortBy =
-  | "primary_release_date.desc"
-  | "popularity.desc"
-  | "vote_average.desc";
 
 const UI = {
   "en-US": {
     movies: "Movies",
     tv: "TV Series",
-    searchPlaceholder: "Search movies & TV...",
-    newest: "Newest",
-    mostViewed: "Most Viewed",
-    bestRated: "Best Rated",
+    searchPlaceholder: "Search movies, TV, actors, topics...",
     browseMovies: "Browse Movies",
     browseTV: "Browse TV Series",
     searchResultsFor: (q: string) => `Search results for "${q}"`,
-    resultsFromTMDB: "Results from TMDB",
-    subtitleNewest: "Newest releases (2026+ vibes)",
-    subtitlePopular: "Most viewed right now",
-    subtitleRated: "Best rated (with enough votes)",
-    loading: "Loading...",
+    resultsFromTMDB: "Movies + TV + Actors + Keywords (TMDB)",
     failed: "Failed to load data.",
     prev: "← Prev",
     next: "Next →",
     page: (p: number, total: number) => `Page ${p} / ${total}`,
-    sortingDisabled: "Sorting disabled during search",
+    sortingDisabled: "Filters disabled during search",
+    updating: "Updating…",
+    filters: "Filters",
+    category: "Category",
   },
   "ro-RO": {
     movies: "Filme",
     tv: "Seriale",
-    searchPlaceholder: "Caută filme & seriale...",
-    newest: "Cele mai noi",
-    mostViewed: "Cele mai vizionate",
-    bestRated: "Cel mai bun rating",
+    searchPlaceholder: "Caută filme, seriale, actori, subiecte...",
     browseMovies: "Explorează Filme",
     browseTV: "Explorează Seriale",
     searchResultsFor: (q: string) => `Rezultate pentru "${q}"`,
-    resultsFromTMDB: "Rezultate din TMDB",
-    subtitleNewest: "Cele mai noi apariții (2026+)",
-    subtitlePopular: "Cele mai vizionate acum",
-    subtitleRated: "Cele mai bune (cu suficiente voturi)",
-    loading: "Se încarcă...",
+    resultsFromTMDB: "Filme + Seriale + Actori + Keywords (TMDB)",
     failed: "Nu s-au putut încărca datele.",
     prev: "← Înapoi",
     next: "Înainte →",
     page: (p: number, total: number) => `Pagina ${p} / ${total}`,
-    sortingDisabled: "Sortarea este dezactivată în timpul căutării",
+    sortingDisabled: "Filtrele sunt dezactivate în timpul căutării",
+    updating: "Se actualizează…",
+    filters: "Filtre",
+    category: "Categorie",
   },
   "es-ES": {
     movies: "Películas",
     tv: "Series",
-    searchPlaceholder: "Buscar películas y series...",
-    newest: "Más nuevas",
-    mostViewed: "Más vistas",
-    bestRated: "Mejor puntuación",
+    searchPlaceholder: "Buscar películas, series, actores, temas...",
     browseMovies: "Explorar Películas",
     browseTV: "Explorar Series",
     searchResultsFor: (q: string) => `Resultados para "${q}"`,
-    resultsFromTMDB: "Resultados de TMDB",
-    subtitleNewest: "Estrenos más nuevos (2026+)",
-    subtitlePopular: "Más vistas ahora",
-    subtitleRated: "Mejor valoradas (con suficientes votos)",
-    loading: "Cargando...",
+    resultsFromTMDB: "Películas + Series + Actores + Keywords (TMDB)",
     failed: "No se pudieron cargar los datos.",
     prev: "← Anterior",
     next: "Siguiente →",
     page: (p: number, total: number) => `Página ${p} / ${total}`,
-    sortingDisabled: "Ordenación desactivada durante la búsqueda",
+    sortingDisabled: "Filtros desactivados durante la búsqueda",
+    updating: "Actualizando…",
+    filters: "Filtros",
+    category: "Categoría",
   },
   "de-DE": {
     movies: "Filme",
     tv: "Serien",
-    searchPlaceholder: "Filme & Serien suchen...",
-    newest: "Neueste",
-    mostViewed: "Meistgesehen",
-    bestRated: "Bestbewertet",
+    searchPlaceholder: "Filme, Serien, Schauspieler, Themen suchen...",
     browseMovies: "Filme entdecken",
     browseTV: "Serien entdecken",
     searchResultsFor: (q: string) => `Ergebnisse für "${q}"`,
-    resultsFromTMDB: "Ergebnisse von TMDB",
-    subtitleNewest: "Neueste Releases (2026+)",
-    subtitlePopular: "Gerade am meisten gesehen",
-    subtitleRated: "Bestbewertet (mit genug Stimmen)",
-    loading: "Laden...",
+    resultsFromTMDB: "Filme + Serien + Schauspieler + Keywords (TMDB)",
     failed: "Daten konnten nicht geladen werden.",
     prev: "← Zurück",
     next: "Weiter →",
     page: (p: number, total: number) => `Seite ${p} / ${total}`,
-    sortingDisabled: "Sortierung während der Suche deaktiviert",
+    sortingDisabled: "Filter während der Suche deaktiviert",
+    updating: "Aktualisieren…",
+    filters: "Filter",
+    category: "Kategorie",
   },
   "fr-FR": {
     movies: "Films",
     tv: "Séries",
-    searchPlaceholder: "Rechercher films & séries...",
-    newest: "Les plus récents",
-    mostViewed: "Les plus vus",
-    bestRated: "Meilleure note",
+    searchPlaceholder: "Rechercher films, séries, acteurs, thèmes...",
     browseMovies: "Explorer les Films",
     browseTV: "Explorer les Séries",
     searchResultsFor: (q: string) => `Résultats pour "${q}"`,
-    resultsFromTMDB: "Résultats TMDB",
-    subtitleNewest: "Sorties les plus récentes (2026+)",
-    subtitlePopular: "Les plus vus actuellement",
-    subtitleRated: "Les mieux notés (avec assez de votes)",
-    loading: "Chargement...",
+    resultsFromTMDB: "Films + Séries + Acteurs + Keywords (TMDB)",
     failed: "Impossible de charger les données.",
     prev: "← Précédent",
     next: "Suivant →",
     page: (p: number, total: number) => `Page ${p} / ${total}`,
-    sortingDisabled: "Tri désactivé pendant la recherche",
+    sortingDisabled: "Filtres désactivés pendant la recherche",
+    updating: "Mise à jour…",
+    filters: "Filtres",
+    category: "Catégorie",
   },
 } as const;
 
+const CATEGORY_LABELS: Record<string, string> = {
+  newest: "Newest",
+  mostViewed: "Most Viewed",
+  bestRated: "Best Rated",
+  trending: "Trending",
+  inCinemas: "In Cinemas",
+  comingSoon: "Coming Soon",
+
+  netflix: "Netflix",
+  disney: "Disney+",
+  max: "Max / HBO",
+  prime: "Prime Video",
+
+  action: "Action",
+  thriller: "Thriller",
+  horror: "Horror",
+  comedy: "Comedy",
+  drama: "Drama",
+  romance: "Romance",
+  sciFi: "Sci-Fi",
+  fantasy: "Fantasy",
+  crime: "Crime",
+  adventure: "Adventure",
+};
+
 const Index = () => {
-  const [language, setLanguage] = useState<Lang>("en-US");
+  const [language, setLanguage] = useState<Lang>("ro-RO");
   const [region, setRegion] = useState<Region>("RO");
   const [tab, setTab] = useState<Tab>("movies");
-  const [sortBy, setSortBy] = useState<SortBy>("primary_release_date.desc");
+
+  const [category, setCategory] = useState<Category>("newest");
 
   const [search, setSearch] = useState("");
   const isSearching = search.trim().length >= 2;
-
   const [page, setPage] = useState(1);
 
   const t = UI[language];
 
   const queryKey = useMemo(() => {
-    if (isSearching) return ["search", search, page, language];
-    return ["browse", tab, page, language, region, sortBy];
-  }, [isSearching, search, tab, page, language, region, sortBy]);
+    if (isSearching) return ["searchEverything", search, page, language, region];
+    return ["browse", tab, page, language, region, category];
+  }, [isSearching, search, tab, page, language, region, category]);
 
   const { data, isLoading, error, isFetching } = useQuery({
     queryKey,
     queryFn: async () => {
       if (isSearching) {
-        return searchMulti({ query: search.trim(), page, language });
+        return searchEverything({ query: search.trim(), page, language, region });
       }
+
       if (tab === "movies") {
-        return browseMovies({ page, language, region, sortBy });
+        return browseMovies({ page, language, region, category });
       }
-      return browseTV({ page, language, region, sortBy });
+
+      return browseTV({ page, language, region, category });
     },
     keepPreviousData: true,
   });
@@ -172,19 +171,13 @@ const Index = () => {
     ? t.browseMovies
     : t.browseTV;
 
-  const subtitle = isSearching
-    ? t.resultsFromTMDB
-    : sortBy === "primary_release_date.desc"
-    ? t.subtitleNewest
-    : sortBy === "popularity.desc"
-    ? t.subtitlePopular
-    : t.subtitleRated;
+  const subtitle = isSearching ? t.resultsFromTMDB : "";
 
   return (
     <div className="min-h-screen">
       <Header />
 
-      {/* ✅ Sticky controls (mobile) */}
+      {/* Controls */}
       <div className="sticky top-0 z-30 bg-black/60 backdrop-blur-xl border-b border-white/10 md:static md:bg-transparent md:border-b-0">
         <div className="px-4 sm:px-6 md:px-12 lg:px-20 pt-4 pb-4 md:pt-6 md:pb-0">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -226,86 +219,98 @@ const Index = () => {
               className="border rounded-lg px-3 py-3 bg-transparent w-full md:w-[360px] text-base"
             />
 
-            {/* Sort + Language + Region (✅ Shadcn Select) */}
+            {/* Filters */}
             <div className="flex flex-wrap gap-2">
-              {/* Sort */}
-              <Select
-                value={sortBy}
-                onValueChange={(v) => {
-                  setSortBy(v as SortBy);
+              <select
+                value={category}
+                onChange={(e) => {
+                  setCategory(e.target.value as Category);
                   setPage(1);
                 }}
+                className="border rounded-lg px-3 py-3 bg-black text-white text-base"
                 disabled={isSearching}
+                title={isSearching ? t.sortingDisabled : ""}
               >
-                <SelectTrigger
-                  className="w-[170px] border rounded-lg px-3 py-3 bg-background text-foreground text-base"
-                  title={isSearching ? t.sortingDisabled : ""}
-                >
-                  <SelectValue placeholder={t.newest} />
-                </SelectTrigger>
+                <optgroup label="Core">
+                  <option value="newest">Newest</option>
+                  <option value="mostViewed">Most Viewed</option>
+                  <option value="bestRated">Best Rated</option>
+                  <option value="trending">Trending</option>
+                  {tab === "movies" && (
+                    <>
+                      <option value="inCinemas">In Cinemas</option>
+                      <option value="comingSoon">Coming Soon</option>
+                    </>
+                  )}
+                </optgroup>
 
-                <SelectContent className="bg-background text-foreground border border-white/10">
-                  <SelectItem value="primary_release_date.desc">
-                    {t.newest}
-                  </SelectItem>
-                  <SelectItem value="popularity.desc">{t.mostViewed}</SelectItem>
-                  <SelectItem value="vote_average.desc">{t.bestRated}</SelectItem>
-                </SelectContent>
-              </Select>
+                <optgroup label="Streaming">
+                  <option value="netflix">Netflix</option>
+                  <option value="max">Max / HBO</option>
+                  <option value="disney">Disney+</option>
+                  <option value="prime">Prime Video</option>
+                </optgroup>
 
-              {/* Language */}
-              <Select
+                <optgroup label="Genres">
+                  <option value="action">Action</option>
+                  <option value="thriller">Thriller</option>
+                  <option value="horror">Horror</option>
+                  <option value="comedy">Comedy</option>
+                  <option value="drama">Drama</option>
+                  <option value="romance">Romance</option>
+                  <option value="sciFi">Sci-Fi</option>
+                  <option value="fantasy">Fantasy</option>
+                  <option value="crime">Crime</option>
+                  <option value="adventure">Adventure</option>
+                </optgroup>
+              </select>
+
+              <select
                 value={language}
-                onValueChange={(v) => {
-                  setLanguage(v as Lang);
+                onChange={(e) => {
+                  setLanguage(e.target.value as Lang);
                   setPage(1);
                 }}
+                className="border rounded-lg px-3 py-3 bg-black text-white text-base"
               >
-                <SelectTrigger className="w-[150px] border rounded-lg px-3 py-3 bg-background text-foreground text-base">
-                  <SelectValue placeholder="Language" />
-                </SelectTrigger>
+                <option value="ro-RO">Română</option>
+                <option value="en-US">English</option>
+                <option value="es-ES">Español</option>
+                <option value="de-DE">Deutsch</option>
+                <option value="fr-FR">Français</option>
+              </select>
 
-                <SelectContent className="bg-background text-foreground border border-white/10">
-                  <SelectItem value="ro-RO">Română</SelectItem>
-                  <SelectItem value="en-US">English</SelectItem>
-                  <SelectItem value="es-ES">Español</SelectItem>
-                  <SelectItem value="de-DE">Deutsch</SelectItem>
-                  <SelectItem value="fr-FR">Français</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* Region */}
-              <Select
+              <select
                 value={region}
-                onValueChange={(v) => {
-                  setRegion(v as Region);
+                onChange={(e) => {
+                  setRegion(e.target.value as Region);
                   setPage(1);
                 }}
+                className="border rounded-lg px-3 py-3 bg-black text-white text-base"
               >
-                <SelectTrigger className="w-[90px] border rounded-lg px-3 py-3 bg-background text-foreground text-base">
-                  <SelectValue placeholder="RO" />
-                </SelectTrigger>
-
-                <SelectContent className="bg-background text-foreground border border-white/10">
-                  <SelectItem value="RO">RO</SelectItem>
-                  <SelectItem value="US">US</SelectItem>
-                  <SelectItem value="DE">DE</SelectItem>
-                  <SelectItem value="FR">FR</SelectItem>
-                  <SelectItem value="ES">ES</SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="RO">RO</option>
+                <option value="US">US</option>
+                <option value="DE">DE</option>
+                <option value="FR">FR</option>
+                <option value="ES">ES</option>
+              </select>
             </div>
           </div>
 
-          {/* small status line */}
-          {isFetching && !isLoading && (
-            <div className="pt-3 text-center text-xs text-muted-foreground">
-              Updating…
-            </div>
-          )}
+          {/* status */}
+          <div className="pt-3 text-center text-xs text-muted-foreground">
+            {!isSearching && (
+              <span>
+                {CATEGORY_LABELS[category] ?? "Category"} • {region} • {language}
+              </span>
+            )}
+            {isFetching && !isLoading && (
+              <span className="ml-2">{t.updating}</span>
+            )}
+          </div>
 
           {error && (
-            <div className="pt-3 text-center text-red-500 text-sm">
+            <div className="pt-2 text-center text-red-500 text-sm">
               {t.failed}
             </div>
           )}
@@ -313,12 +318,7 @@ const Index = () => {
       </div>
 
       {/* Results */}
-      <RankingSection
-        title={title}
-        subtitle={subtitle}
-        items={items}
-        isLoading={isLoading}
-      />
+      <RankingSection title={title} subtitle={subtitle} items={items} />
 
       {/* Pagination */}
       <div className="px-4 sm:px-6 md:px-12 lg:px-20 pb-12 flex items-center justify-center gap-3">
