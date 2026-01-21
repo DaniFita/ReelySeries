@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { tmdbFetch, TMDB_IMAGE_BASE, yearFrom } from "@/data/tmdb";
 
 type TMDBTvDetails = {
   id: number;
@@ -10,47 +12,78 @@ type TMDBTvDetails = {
   poster_path: string | null;
 };
 
-const TMDB_BASE_URL = "https://api.themoviedb.org/3";
-const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
+type TMDBVideosResponse = {
+  results: Array<{
+    id: string;
+    key: string;
+    name: string;
+    site: string;
+    type: string;
+    official: boolean;
+  }>;
+};
 
-function getToken(): string {
-  const token = import.meta.env.VITE_TMDB_TOKEN as string | undefined;
-  if (!token) {
-    throw new Error("Missing VITE_TMDB_TOKEN. Check your .env.local and restart dev server.");
-  }
-  return token;
-}
+type WatchProvider = {
+  provider_id: number;
+  provider_name: string;
+  logo_path: string | null;
+};
 
-async function tmdbFetch<T>(path: string): Promise<T> {
-  const res = await fetch(`${TMDB_BASE_URL}${path}`, {
-    headers: {
-      Authorization: `Bearer ${getToken()}`,
-      Accept: "application/json",
-    },
-  });
+type TMDBWatchProvidersResponse = {
+  results: Record<
+    string,
+    {
+      link?: string;
+      flatrate?: WatchProvider[];
+      rent?: WatchProvider[];
+      buy?: WatchProvider[];
+    }
+  >;
+};
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`TMDB error ${res.status}: ${text}`);
-  }
-
-  return res.json() as Promise<T>;
-}
-
-function yearFrom(date: string | undefined) {
-  if (!date) return "—";
-  return date.slice(0, 4) || "—";
+function providerLogo(logoPath: string | null) {
+  if (!logoPath) return null;
+  return `https://image.tmdb.org/t/p/w92${logoPath}`;
 }
 
 export default function TvDetails() {
   const { id } = useParams();
   const tvId = Number(id);
 
+  const [country, setCountry] = useState<"RO" | "US">("RO");
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["tvDetails", tvId],
     queryFn: () => tmdbFetch<TMDBTvDetails>(`/tv/${tvId}?language=en-US`),
     enabled: Number.isFinite(tvId),
   });
+
+  const { data: videos } = useQuery({
+    queryKey: ["tvVideos", tvId],
+    queryFn: () => tmdbFetch<TMDBVideosResponse>(`/tv/${tvId}/videos?language=en-US`),
+    enabled: Number.isFinite(tvId),
+  });
+
+  const { data: providers } = useQuery({
+    queryKey: ["tvProviders", tvId],
+    queryFn: () => tmdbFetch<TMDBWatchProvidersResponse>(`/tv/${tvId}/watch/providers`),
+    enabled: Number.isFinite(tvId),
+  });
+
+  const trailerKey = useMemo(() => {
+    const list = videos?.results ?? [];
+    const best =
+      list.find((v) => v.site === "YouTube" && v.type === "Trailer" && v.official) ||
+      list.find((v) => v.site === "YouTube" && v.type === "Trailer") ||
+      list.find((v) => v.site === "YouTube" && v.type === "Teaser") ||
+      null;
+    return best?.key ?? null;
+  }, [videos]);
+
+  const countryProviders = useMemo(() => {
+    const all = providers?.results ?? {};
+    return all[country] || all["RO"] || all["US"] || Object.values(all)[0] || null;
+  }, [providers, country]);
 
   if (!Number.isFinite(tvId)) {
     return (
@@ -64,11 +97,7 @@ export default function TvDetails() {
   }
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen px-6 py-6">
-        <p>Loading TV details...</p>
-      </div>
-    );
+    return <div className="min-h-screen px-6 py-6">Loading TV details...</div>;
   }
 
   if (error) {
@@ -107,9 +136,7 @@ export default function TvDetails() {
         <div>
           <h1 className="text-3xl font-bold">
             {data.name}{" "}
-            <span className="text-muted-foreground">
-              ({yearFrom(data.first_air_date)})
-            </span>
+            <span className="text-muted-foreground">({yearFrom(data.first_air_date)})</span>
           </h1>
 
           <div className="mt-2 text-muted-foreground">
@@ -119,6 +146,130 @@ export default function TvDetails() {
           <p className="mt-4 leading-relaxed">
             {data.overview || "No description available."}
           </p>
+
+          {/* Watch Providers */}
+          <div className="mt-6">
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-semibold">Where to watch</h2>
+
+              <select
+                value={country}
+                onChange={(e) => setCountry(e.target.value as "RO" | "US")}
+                className="border rounded-md px-2 py-1 bg-transparent"
+              >
+                <option value="RO">RO</option>
+                <option value="US">US</option>
+              </select>
+            </div>
+
+            {!countryProviders ? (
+              <p className="mt-2 text-muted-foreground">
+                No watch providers available.
+              </p>
+            ) : (
+              <div className="mt-3 space-y-4">
+                {countryProviders.flatrate && countryProviders.flatrate.length > 0 && (
+                  <div>
+                    <div className="font-semibold mb-2">Stream</div>
+                    <div className="flex flex-wrap gap-2">
+                      {countryProviders.flatrate.map((p) => (
+                        <a
+                          key={`stream-${p.provider_id}`}
+                          href={countryProviders.link || "#"}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-2 border rounded-lg px-3 py-2 hover:bg-white/5"
+                        >
+                          {providerLogo(p.logo_path) ? (
+                            <img
+                              src={providerLogo(p.logo_path)!}
+                              alt={p.provider_name}
+                              className="w-6 h-6 rounded"
+                            />
+                          ) : (
+                            <div className="w-6 h-6 rounded bg-white/10" />
+                          )}
+                          <span>{p.provider_name}</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {countryProviders.rent && countryProviders.rent.length > 0 && (
+                  <div>
+                    <div className="font-semibold mb-2">Rent</div>
+                    <div className="flex flex-wrap gap-2">
+                      {countryProviders.rent.map((p) => (
+                        <a
+                          key={`rent-${p.provider_id}`}
+                          href={countryProviders.link || "#"}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-2 border rounded-lg px-3 py-2 hover:bg-white/5"
+                        >
+                          {providerLogo(p.logo_path) ? (
+                            <img
+                              src={providerLogo(p.logo_path)!}
+                              alt={p.provider_name}
+                              className="w-6 h-6 rounded"
+                            />
+                          ) : (
+                            <div className="w-6 h-6 rounded bg-white/10" />
+                          )}
+                          <span>{p.provider_name}</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {countryProviders.buy && countryProviders.buy.length > 0 && (
+                  <div>
+                    <div className="font-semibold mb-2">Buy</div>
+                    <div className="flex flex-wrap gap-2">
+                      {countryProviders.buy.map((p) => (
+                        <a
+                          key={`buy-${p.provider_id}`}
+                          href={countryProviders.link || "#"}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-2 border rounded-lg px-3 py-2 hover:bg-white/5"
+                        >
+                          {providerLogo(p.logo_path) ? (
+                            <img
+                              src={providerLogo(p.logo_path)!}
+                              alt={p.provider_name}
+                              className="w-6 h-6 rounded"
+                            />
+                          ) : (
+                            <div className="w-6 h-6 rounded bg-white/10" />
+                          )}
+                          <span>{p.provider_name}</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Trailer */}
+          {trailerKey && (
+            <div className="mt-8">
+              <h2 className="text-xl font-semibold mb-2">Trailer</h2>
+              <div className="aspect-video w-full overflow-hidden rounded-xl border">
+                <iframe
+                  className="w-full h-full"
+                  src={`https://www.youtube.com/embed/${trailerKey}`}
+                  title="YouTube trailer"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
