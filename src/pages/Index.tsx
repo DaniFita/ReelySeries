@@ -1,19 +1,52 @@
 import Header from "@/components/Header";
 import RankingSection from "@/components/RankingSection";
 import Footer from "@/components/Footer";
-import { topMovies, topSeries } from "@/data/mediaData";
+import { useQuery } from "@tanstack/react-query";
+import { getTopMovies, getTopSeries } from "@/data/mediaData";
 
 const Index = () => {
+  const {
+    data: topMovies,
+    isLoading: moviesLoading,
+    error: moviesError,
+  } = useQuery({
+    queryKey: ["topMovies"],
+    queryFn: getTopMovies,
+  });
+
+  const {
+    data: topSeries,
+    isLoading: seriesLoading,
+    error: seriesError,
+  } = useQuery({
+    queryKey: ["topSeries"],
+    queryFn: getTopSeries,
+  });
+
+
   return (
     <div className="min-h-screen">
       {/* Header */}
       <Header />
+      {(moviesLoading || seriesLoading) && (
+        <div className="px-6 py-4 text-center text-muted-foreground">
+          Loading real data from TMDB...
+        </div>
+      )}
+
+      {(moviesError || seriesError) && (
+        <div className="px-6 py-4 text-center text-red-500">
+          Failed to load TMDB data. Check your token.
+        </div>
+      )}
       
+      <h1 className="text-red-500 text-3xl">TEST RENDER</h1>
+    
       {/* Top Movies */}
       <RankingSection 
         title="Top 10 Movies"
         subtitle="The highest-rated films of 2024"
-        items={topMovies}
+        items={topMovies ?? []}
       />
       
       {/* Divider */}
@@ -25,7 +58,7 @@ const Index = () => {
       <RankingSection 
         title="Top 10 TV Series"
         subtitle="Binge-worthy shows dominating the rankings"
-        items={topSeries}
+        items={topSeries ?? []}
       />
       
       {/* Footer */}

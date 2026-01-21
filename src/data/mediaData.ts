@@ -1,44 +1,101 @@
-import movie1 from "@/assets/posters/movie-1.jpg";
-import movie2 from "@/assets/posters/movie-2.jpg";
-import movie3 from "@/assets/posters/movie-3.jpg";
-import movie4 from "@/assets/posters/movie-4.jpg";
-import movie5 from "@/assets/posters/movie-5.jpg";
-import series1 from "@/assets/posters/series-1.jpg";
-import series2 from "@/assets/posters/series-2.jpg";
-import series3 from "@/assets/posters/series-3.jpg";
-import series4 from "@/assets/posters/series-4.jpg";
-import series5 from "@/assets/posters/series-5.jpg";
+// src/data/mediaData.ts
+// TMDB real data (fără mock-uri)
 
 export interface MediaItem {
   id: number;
+  type: "movie" | "tv";
   title: string;
   rating: number;
-  poster: string;
+  poster: string | null;
   year: string;
 }
 
-export const topMovies: MediaItem[] = [
-  { id: 1, title: "Movie Title 1", rating: 0.0, poster: movie1, year: "Year" },
-  { id: 2, title: "Movie Title 2", rating: 0.0, poster: movie2, year: "Year" },
-  { id: 3, title: "Movie Title 3", rating: 0.0, poster: movie3, year: "Year" },
-  { id: 4, title: "Movie Title 4", rating: 0.0, poster: movie4, year: "Year" },
-  { id: 5, title: "Movie Title 5", rating: 0.0, poster: movie5, year: "Year" },
-  { id: 6, title: "Movie Title 6", rating: 0.0, poster: movie3, year: "Year" },
-  { id: 7, title: "Movie Title 7", rating: 0.0, poster: movie2, year: "Year" },
-  { id: 8, title: "Movie Title 8", rating: 0.0, poster: movie1, year: "Year" },
-  { id: 9, title: "Movie Title 9", rating: 0.0, poster: movie4, year: "Year" },
-  { id: 10, title: "Movie Title 10", rating: 0.0, poster: movie5, year: "Year" },
-];
+type TMDBListResponse<T> = {
+  results: T[];
+};
 
-export const topSeries: MediaItem[] = [
-  { id: 1, title: "TV Series Title 1", rating: 0.0, poster: series1, year: "Year" },
-  { id: 2, title: "TV Series Title 2", rating: 0.0, poster: series2, year: "Year" },
-  { id: 3, title: "TV Series Title 3", rating: 0.0, poster: series3, year: "Year" },
-  { id: 4, title: "TV Series Title 4", rating: 0.0, poster: series4, year: "Year" },
-  { id: 5, title: "TV Series Title 5", rating: 0.0, poster: series5, year: "Year" },
-  { id: 6, title: "TV Series Title 6", rating: 0.0, poster: series1, year: "Year" },
-  { id: 7, title: "TV Series Title 7", rating: 0.0, poster: series2, year: "Year" },
-  { id: 8, title: "TV Series Title 8", rating: 0.0, poster: series3, year: "Year" },
-  { id: 9, title: "TV Series Title 9", rating: 0.0, poster: series4, year: "Year" },
-  { id: 10, title: "TV Series Title 10", rating: 0.0, poster: series5, year: "Year" },
-];
+type TMDBMovie = {
+  id: number;
+  title: string;
+  release_date: string;
+  poster_path: string | null;
+  vote_average: number;
+};
+
+type TMDBTV = {
+  id: number;
+  name: string;
+  first_air_date: string;
+  poster_path: string | null;
+  vote_average: number;
+};
+
+const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
+
+function getToken(): string {
+  const token = import.meta.env.VITE_TMDB_TOKEN as string | undefined;
+  if (!token) {
+    throw new Error(
+      "Lipsește VITE_TMDB_TOKEN. Pune token-ul în .env.local și repornește serverul."
+    );
+  }
+  return token;
+}
+
+async function tmdbFetch<T>(path: string): Promise<T> {
+  const res = await fetch(`${TMDB_BASE_URL}${path}`, {
+    headers: {
+      Authorization: `Bearer ${getToken()}`,
+      Accept: "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`TMDB error ${res.status}: ${text}`);
+  }
+
+  return res.json() as Promise<T>;
+}
+
+function posterUrl(path: string | null): string | null {
+  return path ? `${TMDB_IMAGE_BASE}${path}` : null;
+}
+
+function yearFrom(date: string | undefined): string {
+  if (!date) return "—";
+  return date.slice(0, 4) || "—";
+}
+
+// ✅ Top 10 Movies = Trending Movies (week)
+export async function getTopMovies(): Promise<MediaItem[]> {
+  const data = await tmdbFetch<TMDBListResponse<TMDBMovie>>(
+    `/trending/movie/week?language=en-US`
+  );
+
+  return data.results.slice(0, 10).map((m) => ({
+    id: m.id,
+    type: "movie",
+    title: m.title,
+    rating: m.vote_average,
+    poster: posterUrl(m.poster_path),
+    year: yearFrom(m.release_date),
+  }));
+}
+
+// ✅ Top 10 Series = Trending TV (week)
+export async function getTopSeries(): Promise<MediaItem[]> {
+  const data = await tmdbFetch<TMDBListResponse<TMDBTV>>(
+    `/trending/tv/week?language=en-US`
+  );
+
+  return data.results.slice(0, 10).map((s) => ({
+    id: s.id,
+    type: "tv",
+    title: s.name,
+    rating: s.vote_average,
+    poster: posterUrl(s.poster_path),
+    year: yearFrom(s.first_air_date),
+  }));
+}
