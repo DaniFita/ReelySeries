@@ -1,22 +1,24 @@
 const Footer = () => {
+  const year = new Date().getFullYear();
+
   return (
-    <footer className="px-6 py-12 mt-12 border-t border-border/30">
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-        <p className="text-muted-foreground text-sm">
-          © 2025 ReelySeries. All rights reserved.
+    <footer className="py-10 px-6 mt-10 border-t border-white/10">
+      <div className="max-w-5xl mx-auto text-center space-y-4">
+        <p className="text-sm text-muted-foreground">
+          © {year} ReelySeries. All rights reserved.
         </p>
-        
-        <nav className="flex items-center gap-8">
-          <a href="#" className="text-muted-foreground hover:text-foreground text-sm transition-colors duration-200">
+
+        <div className="flex justify-center gap-6 text-sm text-muted-foreground">
+          <a href="#" className="hover:text-foreground transition-colors">
             About
           </a>
-          <a href="#" className="text-muted-foreground hover:text-foreground text-sm transition-colors duration-200">
+          <a href="#" className="hover:text-foreground transition-colors">
             Contact
           </a>
-          <a href="#" className="text-muted-foreground hover:text-foreground text-sm transition-colors duration-200">
+          <a href="#" className="hover:text-foreground transition-colors">
             Privacy
           </a>
-        </nav>
+        </div>
       </div>
     </footer>
   );
