@@ -23,11 +23,10 @@ const Index = () => {
     queryFn: getTopSeries,
   });
 
-
   return (
     <div className="min-h-screen">
-      {/* Header */}
       <Header />
+
       {(moviesLoading || seriesLoading) && (
         <div className="px-6 py-4 text-center text-muted-foreground">
           Loading real data from TMDB...
@@ -39,29 +38,23 @@ const Index = () => {
           Failed to load TMDB data. Check your token.
         </div>
       )}
-      
-      <h1 className="text-red-500 text-3xl">TEST RENDER</h1>
-    
-      {/* Top Movies */}
-      <RankingSection 
+
+      <RankingSection
         title="Top 10 Movies"
         subtitle="The highest-rated films of 2024"
         items={topMovies ?? []}
       />
-      
-      {/* Divider */}
+
       <div className="flex justify-center px-6">
         <div className="w-full max-w-4xl h-px bg-gradient-to-r from-transparent via-border to-transparent" />
       </div>
-      
-      {/* Top Series */}
-      <RankingSection 
+
+      <RankingSection
         title="Top 10 TV Series"
         subtitle="Binge-worthy shows dominating the rankings"
         items={topSeries ?? []}
       />
-      
-      {/* Footer */}
+
       <Footer />
     </div>
   );
