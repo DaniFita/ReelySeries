@@ -59,16 +59,35 @@
 
   html {
     scroll-behavior: smooth;
+
+    /* ✅ Fix iOS Safari white background above/below page */
+    background: var(--gradient-dark);
+    background-color: hsl(var(--background));
+    min-height: 100%;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+    /* ✅ Keep the entire page dark, including overscroll areas */
     background: var(--gradient-dark);
+    background-color: hsl(var(--background));
+
     min-height: 100vh;
 
-    /* Mobile safe-area (iPhone notch / home bar) */
+    /* ✅ iPhone safe-area (bottom home bar) */
     padding-bottom: env(safe-area-inset-bottom);
+
+    /* Prevent Safari from flashing white */
+    overscroll-behavior: none;
+  }
+
+  /* Ensure root also stays dark */
+  #root {
+    min-height: 100vh;
+    background: var(--gradient-dark);
+    background-color: hsl(var(--background));
   }
 
   /* Better mobile tapping */
