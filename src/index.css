@@ -45,11 +45,11 @@
     --gradient-card: linear-gradient(145deg, hsl(0 0% 10%) 0%, hsl(0 0% 6%) 100%);
     --gradient-accent: linear-gradient(135deg, hsl(0 72% 50%) 0%, hsl(350 65% 40%) 100%);
     --gradient-hero: radial-gradient(ellipse at 50% 0%, hsl(0 50% 15% / 0.3) 0%, transparent 60%);
-    
+
     --shadow-card: 0 4px 24px -4px hsl(0 0% 0% / 0.4);
     --shadow-card-hover: 0 12px 40px -8px hsl(0 0% 0% / 0.6);
     --shadow-glow: 0 0 60px -12px hsl(0 72% 50% / 0.3);
-    
+
     --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
   }
 
@@ -66,6 +66,14 @@
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     background: var(--gradient-dark);
     min-height: 100vh;
+
+    /* Mobile safe-area (iPhone notch / home bar) */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Better mobile tapping */
+  button {
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
@@ -163,5 +171,13 @@
     to {
       opacity: 1;
     }
+  }
+
+  /* Mobile-friendly line clamp (2 lines) */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 }

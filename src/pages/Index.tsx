@@ -6,27 +6,21 @@ import { useMemo, useState } from "react";
 import { browseMovies, browseTV, searchMulti } from "@/data/mediaData";
 
 const Index = () => {
-  // UI language (site)
-  const [language, setLanguage] = useState<"en-US" | "ro-RO" | "es-ES" | "de-DE" | "fr-FR">("en-US");
-  // Country for providers + region sorting context
+  const [language, setLanguage] = useState<
+    "en-US" | "ro-RO" | "es-ES" | "de-DE" | "fr-FR"
+  >("en-US");
+
   const [region, setRegion] = useState<"RO" | "US" | "DE" | "FR" | "ES">("RO");
 
-  // Browse mode
   const [tab, setTab] = useState<"movies" | "tv">("movies");
 
-  // Sort modes:
-  // Newest -> primary_release_date.desc
-  // Most viewed -> popularity.desc
-  // Best rated -> vote_average.desc
   const [sortBy, setSortBy] = useState<
     "primary_release_date.desc" | "popularity.desc" | "vote_average.desc"
   >("primary_release_date.desc");
 
-  // Search
   const [search, setSearch] = useState("");
   const isSearching = search.trim().length >= 2;
 
-  // Pagination
   const [page, setPage] = useState(1);
 
   const queryKey = useMemo(() => {
@@ -50,18 +44,35 @@ const Index = () => {
 
   const items = data?.items ?? [];
   const totalPages = data?.totalPages ?? 1;
+  const maxPages = Math.min(totalPages, 500);
+
+  const title = isSearching
+    ? `Search results for "${search.trim()}"`
+    : tab === "movies"
+    ? "Browse Movies"
+    : "Browse TV Series";
+
+  const subtitle = isSearching
+    ? "Results from TMDB"
+    : sortBy === "primary_release_date.desc"
+    ? "Newest releases (2026+ vibes)"
+    : sortBy === "popularity.desc"
+    ? "Most viewed right now"
+    : "Best rated (with enough votes)";
 
   return (
     <div className="min-h-screen">
       <Header />
 
       {/* Controls */}
-      <div className="px-6 md:px-12 lg:px-20 pt-6">
+      <div className="px-4 sm:px-6 md:px-12 lg:px-20 pt-5 sm:pt-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           {/* Tabs */}
           <div className="flex gap-2">
             <button
-              className={`border rounded-lg px-3 py-2 ${tab === "movies" ? "bg-white/10" : ""}`}
+              className={`border rounded-lg px-3 py-3 text-base ${
+                tab === "movies" ? "bg-white/10" : ""
+              }`}
               onClick={() => {
                 setTab("movies");
                 setPage(1);
@@ -69,8 +80,11 @@ const Index = () => {
             >
               Movies
             </button>
+
             <button
-              className={`border rounded-lg px-3 py-2 ${tab === "tv" ? "bg-white/10" : ""}`}
+              className={`border rounded-lg px-3 py-3 text-base ${
+                tab === "tv" ? "bg-white/10" : ""
+              }`}
               onClick={() => {
                 setTab("tv");
                 setPage(1);
@@ -88,7 +102,7 @@ const Index = () => {
               setPage(1);
             }}
             placeholder="Search movies & TV..."
-            className="border rounded-lg px-3 py-2 bg-transparent w-full md:w-[360px]"
+            className="border rounded-lg px-3 py-3 bg-transparent w-full md:w-[360px] text-base"
           />
 
           {/* Sort + Language + Region */}
@@ -99,7 +113,7 @@ const Index = () => {
                 setSortBy(e.target.value as any);
                 setPage(1);
               }}
-              className="border rounded-lg px-3 py-2 bg-transparent"
+              className="border rounded-lg px-3 py-3 bg-transparent text-base"
               disabled={isSearching}
               title={isSearching ? "Sorting disabled during search" : "Sort"}
             >
@@ -114,7 +128,7 @@ const Index = () => {
                 setLanguage(e.target.value as any);
                 setPage(1);
               }}
-              className="border rounded-lg px-3 py-2 bg-transparent"
+              className="border rounded-lg px-3 py-3 bg-transparent text-base"
             >
               <option value="ro-RO">Română</option>
               <option value="en-US">English</option>
@@ -129,7 +143,7 @@ const Index = () => {
                 setRegion(e.target.value as any);
                 setPage(1);
               }}
-              className="border rounded-lg px-3 py-2 bg-transparent"
+              className="border rounded-lg px-3 py-3 bg-transparent text-base"
             >
               <option value="RO">RO</option>
               <option value="US">US</option>
@@ -142,9 +156,7 @@ const Index = () => {
 
         {/* Status */}
         {isLoading && (
-          <div className="py-4 text-center text-muted-foreground">
-            Loading...
-          </div>
+          <div className="py-4 text-center text-muted-foreground">Loading...</div>
         )}
 
         {error && (
@@ -155,24 +167,12 @@ const Index = () => {
       </div>
 
       {/* Results */}
-      <RankingSection
-        title={isSearching ? `Search results for "${search.trim()}"` : tab === "movies" ? "Browse Movies" : "Browse TV Series"}
-        subtitle={
-          isSearching
-            ? "Results from TMDB"
-            : sortBy === "primary_release_date.desc"
-            ? "Newest releases (2026+ vibes)"
-            : sortBy === "popularity.desc"
-            ? "Most viewed right now"
-            : "Best rated (with enough votes)"
-        }
-        items={items}
-      />
+      <RankingSection title={title} subtitle={subtitle} items={items} />
 
       {/* Pagination */}
-      <div className="px-6 md:px-12 lg:px-20 pb-10 flex items-center justify-center gap-3">
+      <div className="px-4 sm:px-6 md:px-12 lg:px-20 pb-12 flex items-center justify-center gap-3">
         <button
-          className="border rounded-lg px-3 py-2 disabled:opacity-40"
+          className="border rounded-lg px-4 py-3 disabled:opacity-40 text-base"
           disabled={page <= 1}
           onClick={() => setPage((p) => Math.max(1, p - 1))}
         >
@@ -180,12 +180,12 @@ const Index = () => {
         </button>
 
         <div className="text-sm text-muted-foreground">
-          Page {page} / {Math.min(totalPages, 500)}
+          Page {page} / {maxPages}
         </div>
 
         <button
-          className="border rounded-lg px-3 py-2 disabled:opacity-40"
-          disabled={page >= Math.min(totalPages, 500)}
+          className="border rounded-lg px-4 py-3 disabled:opacity-40 text-base"
+          disabled={page >= maxPages}
           onClick={() => setPage((p) => p + 1)}
         >
           Next →

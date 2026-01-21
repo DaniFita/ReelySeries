@@ -1,52 +1,60 @@
-import { Star } from "lucide-react";
-
 interface PosterCardProps {
-  rank: number;
+  rank?: number;
   title: string;
   rating: number;
   posterSrc: string;
-  year?: string;
+  year: string;
 }
 
-const PosterCard = ({ rank, title, rating, posterSrc, year }: PosterCardProps) => {
+export default function PosterCard({
+  rank,
+  title,
+  rating,
+  posterSrc,
+  year,
+}: PosterCardProps) {
+  const safeRating =
+    typeof rating === "number" && Number.isFinite(rating) ? rating : 0;
+
   return (
-    <div className="poster-card group cursor-pointer relative pl-4 pt-4">
-      {/* Rank Badge */}
-      <div className="absolute left-0 top-0 z-10 w-10 h-10 flex items-center justify-center text-lg font-bold text-foreground bg-secondary rounded-full border-2 border-primary/50" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
-        {rank}
-      </div>
-      
-      {/* Poster Image */}
-      <div className="relative aspect-[2/3] overflow-hidden rounded-xl">
-        <img 
-          src={posterSrc} 
-          alt={title}
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-        />
-        
-        {/* Gradient overlay always visible at bottom */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-        
-        {/* Content at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 transition-all duration-300">
-          <div className="space-y-2">
-            <h3 className="text-foreground font-semibold text-sm md:text-base leading-tight line-clamp-2">
-              {title}
-            </h3>
-            <div className="flex items-center gap-2">
-              <div className="rating-badge">
-                <Star className="w-3 h-3 fill-current" />
-                <span>{rating === 0 ? "N/A" : rating.toFixed(1)}</span>
-              </div>
-              {year && (
-                <span className="text-muted-foreground text-xs">{year}</span>
-              )}
-            </div>
+    <div className="group relative">
+      {/* Rank badge */}
+      {typeof rank === "number" && (
+        <div className="absolute -top-2 -left-2 z-10">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/80 border border-white/10 flex items-center justify-center text-xs sm:text-sm font-bold">
+            {rank}
           </div>
         </div>
+      )}
+
+      {/* Poster */}
+      <div className="relative overflow-hidden rounded-xl border border-white/10 bg-black/30">
+        <img
+          src={posterSrc}
+          alt={title}
+          loading="lazy"
+          className="w-full aspect-[2/3] object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+        />
+
+        {/* Bottom gradient overlay */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+
+        {/* Rating pill */}
+        <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/70 border border-white/10 px-2 py-1 text-xs">
+          <span className="text-red-400">★</span>
+          <span className="font-semibold">
+            {safeRating > 0 ? safeRating.toFixed(1) : "N/A"}
+          </span>
+        </div>
+      </div>
+
+      {/* Text */}
+      <div className="mt-2 space-y-1">
+        <div className="text-sm sm:text-base font-semibold line-clamp-2">
+          {title}
+        </div>
+        <div className="text-xs sm:text-sm text-muted-foreground">{year}</div>
       </div>
     </div>
   );
-};
-
-export default PosterCard;
+}
