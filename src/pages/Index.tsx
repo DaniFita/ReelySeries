@@ -5,10 +5,22 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { browseMovies, browseTV, searchMulti } from "@/data/mediaData";
 
+// ✅ Shadcn Select (dark dropdowns on PC)
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 type Lang = "en-US" | "ro-RO" | "es-ES" | "de-DE" | "fr-FR";
 type Region = "RO" | "US" | "DE" | "FR" | "ES";
 type Tab = "movies" | "tv";
-type SortBy = "primary_release_date.desc" | "popularity.desc" | "vote_average.desc";
+type SortBy =
+  | "primary_release_date.desc"
+  | "popularity.desc"
+  | "vote_average.desc";
 
 const UI = {
   "en-US": {
@@ -122,7 +134,6 @@ const Index = () => {
   const [language, setLanguage] = useState<Lang>("en-US");
   const [region, setRegion] = useState<Region>("RO");
   const [tab, setTab] = useState<Tab>("movies");
-
   const [sortBy, setSortBy] = useState<SortBy>("primary_release_date.desc");
 
   const [search, setSearch] = useState("");
@@ -215,52 +226,74 @@ const Index = () => {
               className="border rounded-lg px-3 py-3 bg-transparent w-full md:w-[360px] text-base"
             />
 
-            {/* Sort + Language + Region */}
+            {/* Sort + Language + Region (✅ Shadcn Select) */}
             <div className="flex flex-wrap gap-2">
-              <select
+              {/* Sort */}
+              <Select
                 value={sortBy}
-                onChange={(e) => {
-                  setSortBy(e.target.value as SortBy);
+                onValueChange={(v) => {
+                  setSortBy(v as SortBy);
                   setPage(1);
                 }}
-                className="border rounded-lg px-3 py-3 bg-transparent text-base"
                 disabled={isSearching}
-                title={isSearching ? t.sortingDisabled : ""}
               >
-                <option value="primary_release_date.desc">{t.newest}</option>
-                <option value="popularity.desc">{t.mostViewed}</option>
-                <option value="vote_average.desc">{t.bestRated}</option>
-              </select>
+                <SelectTrigger
+                  className="w-[170px] border rounded-lg px-3 py-3 bg-background text-foreground text-base"
+                  title={isSearching ? t.sortingDisabled : ""}
+                >
+                  <SelectValue placeholder={t.newest} />
+                </SelectTrigger>
 
-              <select
+                <SelectContent className="bg-background text-foreground border border-white/10">
+                  <SelectItem value="primary_release_date.desc">
+                    {t.newest}
+                  </SelectItem>
+                  <SelectItem value="popularity.desc">{t.mostViewed}</SelectItem>
+                  <SelectItem value="vote_average.desc">{t.bestRated}</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Language */}
+              <Select
                 value={language}
-                onChange={(e) => {
-                  setLanguage(e.target.value as Lang);
+                onValueChange={(v) => {
+                  setLanguage(v as Lang);
                   setPage(1);
                 }}
-                className="border rounded-lg px-3 py-3 bg-transparent text-base"
               >
-                <option value="ro-RO">Română</option>
-                <option value="en-US">English</option>
-                <option value="es-ES">Español</option>
-                <option value="de-DE">Deutsch</option>
-                <option value="fr-FR">Français</option>
-              </select>
+                <SelectTrigger className="w-[150px] border rounded-lg px-3 py-3 bg-background text-foreground text-base">
+                  <SelectValue placeholder="Language" />
+                </SelectTrigger>
 
-              <select
+                <SelectContent className="bg-background text-foreground border border-white/10">
+                  <SelectItem value="ro-RO">Română</SelectItem>
+                  <SelectItem value="en-US">English</SelectItem>
+                  <SelectItem value="es-ES">Español</SelectItem>
+                  <SelectItem value="de-DE">Deutsch</SelectItem>
+                  <SelectItem value="fr-FR">Français</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Region */}
+              <Select
                 value={region}
-                onChange={(e) => {
-                  setRegion(e.target.value as Region);
+                onValueChange={(v) => {
+                  setRegion(v as Region);
                   setPage(1);
                 }}
-                className="border rounded-lg px-3 py-3 bg-transparent text-base"
               >
-                <option value="RO">RO</option>
-                <option value="US">US</option>
-                <option value="DE">DE</option>
-                <option value="FR">FR</option>
-                <option value="ES">ES</option>
-              </select>
+                <SelectTrigger className="w-[90px] border rounded-lg px-3 py-3 bg-background text-foreground text-base">
+                  <SelectValue placeholder="RO" />
+                </SelectTrigger>
+
+                <SelectContent className="bg-background text-foreground border border-white/10">
+                  <SelectItem value="RO">RO</SelectItem>
+                  <SelectItem value="US">US</SelectItem>
+                  <SelectItem value="DE">DE</SelectItem>
+                  <SelectItem value="FR">FR</SelectItem>
+                  <SelectItem value="ES">ES</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -272,13 +305,20 @@ const Index = () => {
           )}
 
           {error && (
-            <div className="pt-3 text-center text-red-500 text-sm">{t.failed}</div>
+            <div className="pt-3 text-center text-red-500 text-sm">
+              {t.failed}
+            </div>
           )}
         </div>
       </div>
 
       {/* Results */}
-      <RankingSection title={title} subtitle={subtitle} items={items} isLoading={isLoading} />
+      <RankingSection
+        title={title}
+        subtitle={subtitle}
+        items={items}
+        isLoading={isLoading}
+      />
 
       {/* Pagination */}
       <div className="px-4 sm:px-6 md:px-12 lg:px-20 pb-12 flex items-center justify-center gap-3">
@@ -290,7 +330,9 @@ const Index = () => {
           {t.prev}
         </button>
 
-        <div className="text-sm text-muted-foreground">{t.page(page, maxPages)}</div>
+        <div className="text-sm text-muted-foreground">
+          {t.page(page, maxPages)}
+        </div>
 
         <button
           className="border rounded-lg px-4 py-3 disabled:opacity-40 text-base"
