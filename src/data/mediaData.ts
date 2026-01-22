@@ -801,4 +801,75 @@ export async function getMediaDetails(args: {
     trailerUrl,
     watchButtons: buttons,
   };
+}export async function getPersonDetails(personId: number): Promise<{
+  id: number;
+  name: string;
+  biography: string;
+  profile: string | null;
+  popularity: number;
+}> {
+  const token = getToken();
+
+  const res = await fetch(`https://api.themoviedb.org/3/person/${personId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json;charset=utf-8",
+    },
+  });
+
+  if (!res.ok) throw new Error("Failed person details");
+
+  const p = await res.json();
+
+  return {
+    id: p.id,
+    name: p.name,
+    biography: p.biography ?? "",
+    profile: p.profile_path ? tmdbImg(p.profile_path, "w500") : null,
+    popularity: p.popularity ?? 0,
+  };
+}
+
+export async function getPersonCredits(personId: number): Promise<MediaItem[]> {
+  const token = getToken();
+
+  const res = await fetch(
+    `https://api.themoviedb.org/3/person/${personId}/combined_credits`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json;charset=utf-8",
+      },
+    }
+  );
+
+  if (!res.ok) throw new Error("Failed person credits");
+
+  const j = await res.json();
+
+  const all = [...(j.cast ?? [])];
+
+  // sort: newest first, rating best first
+  all.sort((a: any, b: any) => {
+    const ay = Number((a.release_date || a.first_air_date || "").slice(0, 4)) || 0;
+    const by = Number((b.release_date || b.first_air_date || "").slice(0, 4)) || 0;
+
+    if (by !== ay) return by - ay;
+
+    const ar = Number(a.vote_average) || 0;
+    const br = Number(b.vote_average) || 0;
+    return br - ar;
+  });
+
+  return all
+    .filter((x: any) => x.media_type === "movie" || x.media_type === "tv")
+    .slice(0, 60)
+    .map((x: any) => ({
+      id: x.id,
+      type: x.media_type,
+      title: x.media_type === "movie" ? x.title : x.name,
+      year: ((x.release_date || x.first_air_date || "").slice(0, 4) || "—") as string,
+      rating: Number(x.vote_average) || 0,
+      poster: x.poster_path ? tmdbImg(x.poster_path, "w500") : null,
+    }));
 }
