@@ -6,22 +6,22 @@ export interface MediaItem {
   title: string;
   rating: number;
   poster: string | null;
-  year: string;
+  year: string; // "2026"
 }
 
 export type Lang = "en-US" | "ro-RO" | "es-ES" | "de-DE" | "fr-FR";
 export type Region = "RO" | "US" | "DE" | "FR" | "ES";
 
 export type Category =
+  | "trending"
   | "newest"
   | "mostViewed"
   | "bestRated"
-  | "trending"
   | "inCinemas"
   | "comingSoon"
   | "netflix"
-  | "disney"
   | "max"
+  | "disney"
   | "prime"
   | "action"
   | "thriller"
@@ -33,6 +33,38 @@ export type Category =
   | "fantasy"
   | "crime"
   | "adventure";
+
+export type BrowseResult = {
+  items: MediaItem[];
+  totalPages: number;
+};
+
+export type CastPerson = {
+  id: number;
+  name: string;
+  character?: string;
+  profile?: string | null;
+};
+
+export type ProviderButton = {
+  key: "netflix" | "max" | "disney" | "prime" | "apple" | "google";
+  label: string;
+  url: string;
+};
+
+export type MediaDetails = {
+  id: number;
+  type: MediaType;
+  title: string;
+  year: string;
+  rating: number;
+  overview: string;
+  poster: string | null;
+  backdrop: string | null;
+  cast: CastPerson[];
+  trailerUrl: string | null;
+  watchButtons: ProviderButton[];
+};
 
 type TmdbListResponse<T> = {
   page: number;
@@ -73,7 +105,6 @@ type TmdbPerson = {
   id: number;
   name: string;
   profile_path?: string | null;
-  known_for?: Array<any>;
 };
 
 type CombinedCredits = {
@@ -91,29 +122,40 @@ type KeywordSearchResponse = {
   total_pages: number;
 };
 
-export type BrowseResult = {
-  items: MediaItem[];
-  totalPages: number;
+type CreditsResponse = {
+  cast: Array<{
+    id: number;
+    name: string;
+    character?: string;
+    profile_path?: string | null;
+    order?: number;
+  }>;
 };
 
-export type CastPerson = {
-  id: number;
-  name: string;
-  character?: string;
-  profile?: string | null;
+type VideosResponse = {
+  results: Array<{
+    site: string;
+    type: string;
+    key: string;
+    official?: boolean;
+    name?: string;
+  }>;
 };
 
-export type MediaDetails = {
-  id: number;
-  type: MediaType;
-  title: string;
-  year: string;
-  rating: number;
-  overview: string;
-  poster: string | null;
-  backdrop: string | null;
-  cast: CastPerson[];
+type WatchProvidersResponse = {
+  results: Record<
+    string,
+    {
+      link?: string;
+      flatrate?: Array<{ provider_name: string }>;
+      rent?: Array<{ provider_name: string }>;
+      buy?: Array<{ provider_name: string }>;
+    }
+  >;
 };
+
+type Provider = { provider_id: number; provider_name: string };
+type ProviderListResponse = { results: Provider[] };
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
 const TMDB_IMAGE = "https://image.tmdb.org/t/p/w500";
@@ -121,7 +163,7 @@ const TMDB_IMAGE_ORIGINAL = "https://image.tmdb.org/t/p/original";
 
 function getToken() {
   const token = import.meta.env.VITE_TMDB_TOKEN as string | undefined;
-  if (!token) throw new Error("Missing VITE_TMDB_TOKEN");
+  if (!token) throw new Error("Missing VITE_TMDB_TOKEN (.env.local / Vercel env)");
   return token;
 }
 
@@ -173,8 +215,37 @@ function tvToItem(t: TmdbTV): MediaItem {
   };
 }
 
+/** ✅ Search sort: NEWEST -> OLDEST, then BEST RATING -> WORST */
+function sortSearchResults(items: MediaItem[]) {
+  const yearNum = (y: string) => {
+    const n = Number(y);
+    return Number.isFinite(n) ? n : -1;
+  };
+
+  return [...items].sort((a, b) => {
+    const ya = yearNum(a.year);
+    const yb = yearNum(b.year);
+
+    // unknown year -> always at end
+    const unkA = ya < 0;
+    const unkB = yb < 0;
+    if (unkA && !unkB) return 1;
+    if (!unkA && unkB) return -1;
+
+    // year DESC
+    if (yb !== ya) return yb - ya;
+
+    // rating DESC
+    const ra = a.rating ?? 0;
+    const rb = b.rating ?? 0;
+    if (rb !== ra) return rb - ra;
+
+    return a.title.localeCompare(b.title);
+  });
+}
+
 /**
- * ✅ BLOCK ONLY for TOP/BROWSE lists (NOT for search)
+ * ✅ BLOCK ONLY for TOP/BROWSE lists (NOT search)
  * - no Japanese/Korean + no Animation in TOP lists
  */
 const BLOCK_LANGS = new Set(["ja", "ko"]);
@@ -198,30 +269,8 @@ function isBlockedTVForTop(t: TmdbTV): boolean {
   );
 }
 
-/**
- * ✅ Genres mapping
- * Movie genre IDs (TMDB standard):
- * Action 28, Adventure 12, Comedy 35, Crime 80, Drama 18,
- * Fantasy 14, Horror 27, Romance 10749, Sci-Fi 878, Thriller 53
- *
- * TV has different Sci-Fi/Fantasy: 10765
- */
-const MOVIE_GENRES: Record<
-  Exclude<
-    Category,
-    | "newest"
-    | "mostViewed"
-    | "bestRated"
-    | "trending"
-    | "inCinemas"
-    | "comingSoon"
-    | "netflix"
-    | "disney"
-    | "max"
-    | "prime"
-  >,
-  number
-> = {
+/** ✅ Genres */
+const MOVIE_GENRES: Record<string, number> = {
   action: 28,
   thriller: 53,
   horror: 27,
@@ -234,41 +283,20 @@ const MOVIE_GENRES: Record<
   adventure: 12,
 };
 
-const TV_GENRES: Record<
-  Exclude<
-    Category,
-    | "newest"
-    | "mostViewed"
-    | "bestRated"
-    | "trending"
-    | "inCinemas"
-    | "comingSoon"
-    | "netflix"
-    | "disney"
-    | "max"
-    | "prime"
-  >,
-  number
-> = {
-  action: 10759, // Action & Adventure (TV)
-  thriller: 9648, // Mystery (closest)
-  horror: 9648, // mystery-ish (TMDB TV horror isn't clean)
+const TV_GENRES: Record<string, number> = {
+  action: 10759,
+  thriller: 9648, // close enough
+  horror: 9648,
   comedy: 35,
   drama: 18,
   romance: 10749,
-  sciFi: 10765, // Sci-Fi & Fantasy
+  sciFi: 10765,
   fantasy: 10765,
   crime: 80,
   adventure: 10759,
 };
 
-/**
- * ✅ Provider IDs: NO HARD-CODE.
- * We fetch provider list from TMDB and detect Netflix/Disney/Max/Prime by name.
- */
-type Provider = { provider_id: number; provider_name: string; logo_path?: string };
-type ProviderListResponse = { results: Provider[] };
-
+/** ✅ Providers detection */
 let providerCacheMovie: Provider[] | null = null;
 let providerCacheTV: Provider[] | null = null;
 
@@ -290,25 +318,21 @@ async function getProviders(type: MediaType): Promise<Provider[]> {
 async function getProviderId(type: MediaType, key: "netflix" | "disney" | "max" | "prime") {
   const providers = await getProviders(type);
 
-  const nameMatches: Record<typeof key, string[]> = {
+  const wanted: Record<typeof key, string[]> = {
     netflix: ["netflix"],
     disney: ["disney", "disney+"],
     max: ["max", "hbo max", "hbo"],
     prime: ["amazon prime", "prime video"],
   };
 
-  const wanted = nameMatches[key];
-
   const found = providers.find((p) =>
-    wanted.some((w) => p.provider_name.toLowerCase().includes(w))
+    wanted[key].some((w) => p.provider_name.toLowerCase().includes(w))
   );
 
   return found?.provider_id ?? null;
 }
 
-/**
- * ✅ BROWSE MOVIES by CATEGORY
- */
+/** ✅ Browse Movies by Category */
 export async function browseMovies(args: {
   page: number;
   language: Lang;
@@ -317,7 +341,15 @@ export async function browseMovies(args: {
 }): Promise<BrowseResult> {
   const { page, language, region, category } = args;
 
-  // Built-in list endpoints
+  if (category === "trending") {
+    const data = await tmdbFetch<TmdbListResponse<TmdbMovie>>("/trending/movie/week", {
+      language,
+      page,
+    });
+    const results = data.results.filter((m) => !isBlockedMovieForTop(m));
+    return { items: results.map(movieToItem), totalPages: data.total_pages };
+  }
+
   if (category === "inCinemas") {
     const data = await tmdbFetch<TmdbListResponse<TmdbMovie>>("/movie/now_playing", {
       language,
@@ -338,16 +370,6 @@ export async function browseMovies(args: {
     return { items: results.map(movieToItem), totalPages: data.total_pages };
   }
 
-  if (category === "trending") {
-    const data = await tmdbFetch<TmdbListResponse<TmdbMovie>>("/trending/movie/week", {
-      language,
-      page,
-    });
-    const results = data.results.filter((m) => !isBlockedMovieForTop(m));
-    return { items: results.map(movieToItem), totalPages: data.total_pages };
-  }
-
-  // Sort-based categories
   if (category === "newest") {
     const data = await tmdbFetch<TmdbListResponse<TmdbMovie>>("/movie/now_playing", {
       language,
@@ -374,17 +396,13 @@ export async function browseMovies(args: {
       page,
       region,
     });
-
     let results = data.results.filter((m) => !isBlockedMovieForTop(m));
-    // avoid fake "10.0 with 3 votes"
     const filtered = results.filter((m) => (m.vote_count ?? 0) >= 200);
     if (filtered.length >= 10) results = filtered;
-
     return { items: results.map(movieToItem), totalPages: data.total_pages };
   }
 
-  // Streaming services (discover)
-  if (category === "netflix" || category === "disney" || category === "max" || category === "prime") {
+  if (category === "netflix" || category === "max" || category === "disney" || category === "prime") {
     const providerId = await getProviderId("movie", category);
     const data = await tmdbFetch<TmdbListResponse<TmdbMovie>>("/discover/movie", {
       language,
@@ -395,13 +413,12 @@ export async function browseMovies(args: {
       sort_by: "popularity.desc",
       include_adult: "false",
     });
-
     const results = data.results.filter((m) => !isBlockedMovieForTop(m));
     return { items: results.map(movieToItem), totalPages: data.total_pages };
   }
 
-  // Genres
-  const genreId = MOVIE_GENRES[category as keyof typeof MOVIE_GENRES];
+  // genres
+  const genreId = MOVIE_GENRES[category];
   const data = await tmdbFetch<TmdbListResponse<TmdbMovie>>("/discover/movie", {
     language,
     page,
@@ -410,14 +427,11 @@ export async function browseMovies(args: {
     sort_by: "popularity.desc",
     include_adult: "false",
   });
-
   const results = data.results.filter((m) => !isBlockedMovieForTop(m));
   return { items: results.map(movieToItem), totalPages: data.total_pages };
 }
 
-/**
- * ✅ BROWSE TV by CATEGORY
- */
+/** ✅ Browse TV by Category */
 export async function browseTV(args: {
   page: number;
   language: Lang;
@@ -435,7 +449,6 @@ export async function browseTV(args: {
     return { items: results.map(tvToItem), totalPages: data.total_pages };
   }
 
-  // Sort-ish TV (discover)
   if (category === "newest") {
     const data = await tmdbFetch<TmdbListResponse<TmdbTV>>("/discover/tv", {
       language,
@@ -473,8 +486,7 @@ export async function browseTV(args: {
     return { items: results.map(tvToItem), totalPages: data.total_pages };
   }
 
-  // Streaming TV (discover)
-  if (category === "netflix" || category === "disney" || category === "max" || category === "prime") {
+  if (category === "netflix" || category === "max" || category === "disney" || category === "prime") {
     const providerId = await getProviderId("tv", category);
     const data = await tmdbFetch<TmdbListResponse<TmdbTV>>("/discover/tv", {
       language,
@@ -484,13 +496,12 @@ export async function browseTV(args: {
       with_watch_providers: providerId ?? undefined,
       sort_by: "popularity.desc",
     });
-
     const results = data.results.filter((t) => !isBlockedTVForTop(t));
     return { items: results.map(tvToItem), totalPages: data.total_pages };
   }
 
-  // Genres TV
-  const genreId = TV_GENRES[category as keyof typeof TV_GENRES];
+  // genres
+  const genreId = TV_GENRES[category];
   const data = await tmdbFetch<TmdbListResponse<TmdbTV>>("/discover/tv", {
     language,
     page,
@@ -499,21 +510,12 @@ export async function browseTV(args: {
     watch_region: region,
     with_watch_monetization_types: "flatrate|free|ads|rent|buy",
   });
-
   const results = data.results.filter((t) => !isBlockedTVForTop(t));
   return { items: results.map(tvToItem), totalPages: data.total_pages };
 }
 
-/**
- * ✅ SUPER SEARCH
- * Works for:
- * - titles
- * - actors (person search + credits)
- * - topics (keywords + discover boost)
- * - romanian movies queries like "filme romanesti"
- */
+/** ✅ Search helper */
 function normalizeQuery(q: string) {
-  // remove diacritics
   return q
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -523,15 +525,18 @@ function normalizeQuery(q: string) {
 function isRomanianIntent(q: string) {
   const s = normalizeQuery(q).toLowerCase();
   return (
-    s.includes("roman") || // romanesc/romanesti/romania/romanian
+    s.includes("roman") ||
     s.includes("romania") ||
-    s.includes("romane") ||
     s.includes("romanesti") ||
     s.includes("romanesc") ||
     s.includes("romanian")
   );
 }
 
+/**
+ * ✅ SUPER SEARCH (movie + tv + actors + topics)
+ * ✅ Sorted NEW -> OLD then BEST rating -> WORST
+ */
 export async function searchEverything(args: {
   query: string;
   page: number;
@@ -543,18 +548,14 @@ export async function searchEverything(args: {
   const raw = query.trim();
   if (!raw) return { items: [], totalPages: 1 };
 
-  const q1 = raw;
-  const q2 = normalizeQuery(raw);
-  const queries = Array.from(new Set([q1, q2, q2.toLowerCase()])).filter(Boolean);
-
-  // If user clearly wants Romanian movies/TV, give them discover results instantly.
+  // Special case: "filme romanesti"
   if (isRomanianIntent(raw)) {
     const moviesRO = await tmdbFetch<TmdbListResponse<TmdbMovie>>("/discover/movie", {
       language,
       page,
       region,
       with_original_language: "ro",
-      sort_by: "popularity.desc",
+      sort_by: "primary_release_date.desc",
       include_adult: "false",
     });
 
@@ -562,20 +563,27 @@ export async function searchEverything(args: {
       language,
       page,
       with_original_language: "ro",
-      sort_by: "popularity.desc",
+      sort_by: "first_air_date.desc",
       watch_region: region,
       with_watch_monetization_types: "flatrate|free|ads|rent|buy",
     });
 
-    const merged: MediaItem[] = [
+    const merged = sortSearchResults([
       ...moviesRO.results.map(movieToItem),
       ...tvRO.results.map(tvToItem),
-    ];
+    ]);
 
-    return { items: merged, totalPages: Math.max(moviesRO.total_pages, tvRO.total_pages) };
+    return {
+      items: merged,
+      totalPages: Math.max(moviesRO.total_pages, tvRO.total_pages),
+    };
   }
 
-  // 1) Multi search (current language)
+  const q1 = raw;
+  const q2 = normalizeQuery(raw);
+  const queries = Array.from(new Set([q1, q2, q2.toLowerCase()])).filter(Boolean);
+
+  // 1) Multi search
   let multi = await tmdbFetch<
     TmdbListResponse<
       | (TmdbMovie & { media_type: "movie" })
@@ -589,7 +597,7 @@ export async function searchEverything(args: {
     include_adult: "false",
   });
 
-  // If almost empty, fallback to EN search (TMDB works best in EN)
+  // fallback EN if empty
   if ((multi.results?.length ?? 0) < 3) {
     multi = await tmdbFetch<any>("/search/multi", {
       query: queries[0],
@@ -603,10 +611,8 @@ export async function searchEverything(args: {
     .filter((r: any) => r.media_type === "movie" || r.media_type === "tv")
     .map((r: any) => (r.media_type === "movie" ? movieToItem(r) : tvToItem(r)));
 
-  // 2) Person search (explicit) to catch actors better
-  // even if multi didn't return persons
+  // 2) Actor search (person) + credits
   let people: TmdbPerson[] = [];
-
   for (const q of queries.slice(0, 2)) {
     try {
       const persons = await tmdbFetch<TmdbListResponse<TmdbPerson>>("/search/person", {
@@ -615,36 +621,28 @@ export async function searchEverything(args: {
         language: "en-US",
         include_adult: "false",
       });
-
       people = [...people, ...(persons.results ?? [])];
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 
-  // take best 2
   people = people.slice(0, 2);
 
   const actorCredits: MediaItem[] = [];
-
   for (const p of people) {
     try {
       const credits = await tmdbFetch<CombinedCredits>(`/person/${p.id}/combined_credits`, {
         language,
       });
 
-      const cast = (credits.cast ?? []).slice(0, 30);
-
+      const cast = (credits.cast ?? []).slice(0, 40);
       for (const c of cast) {
         if ((c as any).media_type === "movie") actorCredits.push(movieToItem(c as any));
         if ((c as any).media_type === "tv") actorCredits.push(tvToItem(c as any));
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 
-  // 3) Keyword boost (topics like "egypt", "vikings", etc.)
+  // 3) Keyword boost (topics)
   const keywordItems: MediaItem[] = [];
   try {
     const kw = await tmdbFetch<KeywordSearchResponse>("/search/keyword", {
@@ -673,14 +671,12 @@ export async function searchEverything(args: {
         page: 1,
       });
 
-      keywordItems.push(...moviesKW.results.slice(0, 12).map(movieToItem));
-      keywordItems.push(...tvKW.results.slice(0, 12).map(tvToItem));
+      keywordItems.push(...moviesKW.results.slice(0, 15).map(movieToItem));
+      keywordItems.push(...tvKW.results.slice(0, 15).map(tvToItem));
     }
-  } catch {
-    // ignore
-  }
+  } catch {}
 
-  // Merge + Deduplicate
+  // Merge + dedupe
   const map = new Map<string, MediaItem>();
   const push = (it: MediaItem) => {
     const key = `${it.type}:${it.id}`;
@@ -691,68 +687,48 @@ export async function searchEverything(args: {
   actorCredits.forEach(push);
   keywordItems.forEach(push);
 
-  const finalItems = Array.from(map.values()).slice(0, 60);
+  const finalItems = sortSearchResults(Array.from(map.values())).slice(0, 80);
 
   return { items: finalItems, totalPages: multi.total_pages ?? 1 };
 }
 
 /**
- * ✅ DETAILS + CAST
+ * ✅ Media Details: trailer + cast + watch buttons (NOT TMDB links)
  */
-type CreditsResponse = {
-  cast: Array<{
-    id: number;
-    name: string;
-    character?: string;
-    profile_path?: string | null;
-    order?: number;
-  }>;
-};
+function getPlatformSearchLinks(title: string): ProviderButton[] {
+  const q = encodeURIComponent(title);
 
-export async function getMovieDetails(args: {
-  id: number;
-  language: Lang;
-}): Promise<MediaDetails> {
-  const { id, language } = args;
-
-  const details = await tmdbFetch<any>(`/movie/${id}`, { language });
-  const credits = await tmdbFetch<CreditsResponse>(`/movie/${id}/credits`, {});
-
-  const cast = (credits.cast ?? [])
-    .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
-    .slice(0, 12)
-    .map((c) => ({
-      id: c.id,
-      name: c.name,
-      character: c.character,
-      profile: c.profile_path ? `${TMDB_IMAGE}${c.profile_path}` : null,
-    }));
-
-  return {
-    id: details.id,
-    type: "movie",
-    title: details.title ?? "—",
-    year: details.release_date?.slice(0, 4) || "—",
-    rating: typeof details.vote_average === "number" ? details.vote_average : 0,
-    overview: details.overview ?? "",
-    poster: details.poster_path ? `${TMDB_IMAGE}${details.poster_path}` : null,
-    backdrop: details.backdrop_path
-      ? `${TMDB_IMAGE_ORIGINAL}${details.backdrop_path}`
-      : null,
-    cast,
-  };
+  return [
+    { key: "netflix", label: "Watch on Netflix", url: `https://www.netflix.com/search?q=${q}` },
+    { key: "max", label: "Watch on Max", url: `https://www.max.com/search?q=${q}` },
+    { key: "disney", label: "Watch on Disney+", url: `https://www.disneyplus.com/search?q=${q}` },
+    { key: "prime", label: "Watch on Prime Video", url: `https://www.primevideo.com/search/ref=atv_nb_sug?phrase=${q}` },
+    { key: "apple", label: "Rent/Buy on Apple TV", url: `https://tv.apple.com/search?term=${q}` },
+    { key: "google", label: "Rent/Buy on Google Play", url: `https://play.google.com/store/search?q=${q}&c=movies` },
+  ];
 }
 
-export async function getTVDetails(args: {
-  id: number;
-  language: Lang;
-}): Promise<MediaDetails> {
-  const { id, language } = args;
+async function getTrailerUrl(type: MediaType, id: number, language: Lang) {
+  const data = await tmdbFetch<VideosResponse>(`/${type}/${id}/videos`, {
+    language,
+  });
 
-  const details = await tmdbFetch<any>(`/tv/${id}`, { language });
-  const credits = await tmdbFetch<CreditsResponse>(`/tv/${id}/credits`, {});
+  // prefer YouTube Trailer
+  const yt = (data.results ?? []).filter((v) => v.site === "YouTube");
 
-  const cast = (credits.cast ?? [])
+  const trailer =
+    yt.find((v) => v.type === "Trailer" && v.official) ||
+    yt.find((v) => v.type === "Trailer") ||
+    yt[0];
+
+  if (!trailer) return null;
+
+  return `https://www.youtube.com/watch?v=${trailer.key}`;
+}
+
+async function getCast(type: MediaType, id: number) {
+  const data = await tmdbFetch<CreditsResponse>(`/${type}/${id}/credits`, {});
+  return (data.cast ?? [])
     .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
     .slice(0, 12)
     .map((c) => ({
@@ -761,18 +737,68 @@ export async function getTVDetails(args: {
       character: c.character,
       profile: c.profile_path ? `${TMDB_IMAGE}${c.profile_path}` : null,
     }));
+}
+
+async function getWatchProviders(type: MediaType, id: number, region: Region) {
+  const data = await tmdbFetch<WatchProvidersResponse>(`/${type}/${id}/watch/providers`, {});
+  const r = data.results?.[region];
+  if (!r) return [];
+
+  const providers = new Set<string>();
+  (r.flatrate ?? []).forEach((p) => providers.add(p.provider_name));
+  (r.rent ?? []).forEach((p) => providers.add(p.provider_name));
+  (r.buy ?? []).forEach((p) => providers.add(p.provider_name));
+
+  return Array.from(providers);
+}
+
+export async function getMediaDetails(args: {
+  type: MediaType;
+  id: number;
+  language: Lang;
+  region: Region;
+}): Promise<MediaDetails> {
+  const { type, id, language, region } = args;
+
+  const details = await tmdbFetch<any>(`/${type}/${id}`, { language });
+
+  const title = type === "movie" ? details.title : details.name;
+  const year =
+    type === "movie"
+      ? details.release_date?.slice(0, 4) || "—"
+      : details.first_air_date?.slice(0, 4) || "—";
+
+  const rating = typeof details.vote_average === "number" ? details.vote_average : 0;
+  const overview = details.overview ?? "";
+
+  const poster = details.poster_path ? `${TMDB_IMAGE}${details.poster_path}` : null;
+  const backdrop = details.backdrop_path
+    ? `${TMDB_IMAGE_ORIGINAL}${details.backdrop_path}`
+    : null;
+
+  const [cast, trailerUrl, providers] = await Promise.all([
+    getCast(type, id),
+    getTrailerUrl(type, id, language),
+    getWatchProviders(type, id, region),
+  ]);
+
+  // buttons are platform search pages, NOT TMDB
+  const buttons = getPlatformSearchLinks(title);
+
+  // optional: if none providers in region, still show buttons (user asked direct)
+  // providers list could be shown in UI later.
 
   return {
-    id: details.id,
-    type: "tv",
-    title: details.name ?? "—",
-    year: details.first_air_date?.slice(0, 4) || "—",
-    rating: typeof details.vote_average === "number" ? details.vote_average : 0,
-    overview: details.overview ?? "",
-    poster: details.poster_path ? `${TMDB_IMAGE}${details.poster_path}` : null,
-    backdrop: details.backdrop_path
-      ? `${TMDB_IMAGE_ORIGINAL}${details.backdrop_path}`
-      : null,
+    id,
+    type,
+    title,
+    year,
+    rating,
+    overview,
+    poster,
+    backdrop,
     cast,
+    trailerUrl,
+    watchButtons: buttons,
   };
 }
